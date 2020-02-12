@@ -12,9 +12,11 @@ use wascc_codec::core::CapabilityConfiguration;
 use std::error::Error;
 use std::sync::RwLock;
 
+mod kv;
+
 capability_provider!(WasccKeyvalueProvider, WasccKeyvalueProvider::new);
 
-const CAPABILITY_ID: &str = "new:wascc-keyvalue"; // TODO: change this to an appropriate capability ID
+const CAPABILITY_ID: &str = "wascc::keyvalue";
 
 pub struct WasccKeyvalueProvider {
     dispatcher: RwLock<Box<dyn Dispatcher>>,
@@ -24,8 +26,8 @@ impl Default for WasccKeyvalueProvider {
     fn default() -> Self {
         env_logger::init();
 
-        WasccKeyvalueProvider { 
-            dispatcher: RwLock::new(Box::new(NullDispatcher::new())),           
+        WasccKeyvalueProvider {
+            dispatcher: RwLock::new(Box::new(NullDispatcher::new())),
         }
     }
 }
@@ -42,7 +44,7 @@ impl WasccKeyvalueProvider {
         let _config = config.into();
 
         Ok(vec![])
-    }    
+    }
 }
 
 impl CapabilityProvider for WasccKeyvalueProvider {
@@ -61,7 +63,7 @@ impl CapabilityProvider for WasccKeyvalueProvider {
     }
 
     fn name(&self) -> &'static str {
-        "New WasccKeyvalue Capability Provider" // TODO: change this friendly name
+        "waSCC sample in-memory KV provider"
     }
 
     // Invoked by host runtime to allow an actor to make use of the capability
@@ -69,8 +71,8 @@ impl CapabilityProvider for WasccKeyvalueProvider {
     fn handle_call(&self, actor: &str, op: &str, msg: &[u8]) -> Result<Vec<u8>, Box<dyn Error>> {
         trace!("Received host call from {}, operation - {}", actor, op);
 
-        match op {            
-            OP_CONFIGURE if actor == "system" => self.configure(msg.to_vec().as_ref()),            
+        match op {
+            OP_CONFIGURE if actor == "system" => self.configure(msg.to_vec().as_ref()),
             _ => Err("bad dispatch".into()),
         }
     }
