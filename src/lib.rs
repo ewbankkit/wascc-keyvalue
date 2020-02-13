@@ -1,4 +1,3 @@
-
 #[macro_use]
 extern crate wascc_codec as codec;
 
