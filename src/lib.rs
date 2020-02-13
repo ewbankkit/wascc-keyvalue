@@ -5,14 +5,16 @@ extern crate wascc_codec as codec;
 #[macro_use]
 extern crate log;
 
+use crate::kv::KeyValueStore;
 use codec::capabilities::{CapabilityProvider, Dispatcher, NullDispatcher};
 use codec::core::OP_CONFIGURE;
+use prost::Message; // Required for 'decode's.
 use wascc_codec::core::CapabilityConfiguration;
 
 use std::error::Error;
 use std::sync::RwLock;
 
-mod kv;
+pub mod kv;
 
 capability_provider!(WasccKeyvalueProvider, WasccKeyvalueProvider::new);
 
@@ -20,6 +22,7 @@ const CAPABILITY_ID: &str = "wascc::keyvalue";
 
 pub struct WasccKeyvalueProvider {
     dispatcher: RwLock<Box<dyn Dispatcher>>,
+    store: RwLock<KeyValueStore>,
 }
 
 impl Default for WasccKeyvalueProvider {
@@ -28,6 +31,7 @@ impl Default for WasccKeyvalueProvider {
 
         WasccKeyvalueProvider {
             dispatcher: RwLock::new(Box::new(NullDispatcher::new())),
+            store: RwLock::new(KeyValueStore::new()),
         }
     }
 }
@@ -44,6 +48,12 @@ impl WasccKeyvalueProvider {
         let _config = config.into();
 
         Ok(vec![])
+    }
+
+    fn remove_actor(&self, _config: CapabilityConfiguration) -> Result<Vec<u8>, Box<dyn Error>> {
+        trace!("remove_actor noop");
+
+        Ok(Vec::new())
     }
 }
 
@@ -73,6 +83,9 @@ impl CapabilityProvider for WasccKeyvalueProvider {
 
         match op {
             OP_CONFIGURE if actor == "system" => self.configure(msg.to_vec().as_ref()),
+            OP_REMOVE_ACTOR if actor == "system" => {
+                self.remove_actor(CapabilityConfiguration::decode(msg).unwrap())
+            }
             _ => Err("bad dispatch".into()),
         }
     }
