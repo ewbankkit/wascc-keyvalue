@@ -49,8 +49,16 @@ impl KeyValueStore {
     }
 
     // Performs an atomic add operation, returning the new value
-    pub fn atomic_add(&self, key: &str, value: i32) -> Result<i32, Box<dyn Error>> {
-        Ok(42)
+    pub fn atomic_add(&mut self, key: &str, value: i32) -> Result<i32, Box<dyn Error>> {
+        let current_value = self.items.get_mut(key);
+        match current_value {
+            None => Err("Key not present".into()),
+            Some(KeyValueItem::Atomic(v)) => {
+                *v += value;
+                Ok(*v)
+            }
+            _ => Err("Attempt to fetch non-atomic".into())
+        }
     }
 
     // Adds a string value to a list stored within a given key.
@@ -111,5 +119,25 @@ impl KeyValueStore {
     // Indicates whether or not a given key exists in the data store.
     pub fn exists(&self, key: &str) -> Result<bool, Box<dyn Error>> {
         Ok(false)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::KeyValueStore;
+
+    fn gen_store() -> KeyValueStore {
+        let store = KeyValueStore::new();
+
+        store
+    }
+
+    #[test]
+    fn test_atomic_add() {
+        let mut store = gen_store();
+
+        let result = store.atomic_add("key1", 3).unwrap();
+
+        assert_eq!(4, result);
     }
 }

@@ -6,11 +6,13 @@ extern crate log;
 
 use crate::kv::KeyValueStore;
 use codec::capabilities::{CapabilityProvider, Dispatcher, NullDispatcher};
-use codec::core::OP_CONFIGURE;
+use codec::core::CapabilityConfiguration;
+use codec::core::{OP_CONFIGURE, OP_REMOVE_ACTOR};
+use codec::keyvalue::*;
 use prost::Message; // Required for 'decode's.
-use wascc_codec::core::CapabilityConfiguration;
 
 use std::error::Error;
+use std::fmt;
 use std::sync::RwLock;
 
 pub mod kv;
@@ -18,6 +20,31 @@ pub mod kv;
 capability_provider!(WasccKeyvalueProvider, WasccKeyvalueProvider::new);
 
 const CAPABILITY_ID: &str = "wascc::keyvalue";
+
+#[derive(Debug)]
+struct SimpleError {
+    message: String,
+}
+
+impl SimpleError {
+    fn new(message: &str) -> Self {
+        SimpleError {
+            message: message.into(),
+        }
+    }
+}
+
+impl fmt::Display for SimpleError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl Error for SimpleError {
+    fn description(&self) -> &str {
+        &self.message
+    }
+}
 
 pub struct WasccKeyvalueProvider {
     dispatcher: RwLock<Box<dyn Dispatcher>>,
@@ -54,6 +81,12 @@ impl WasccKeyvalueProvider {
 
         Ok(Vec::new())
     }
+
+    fn add(&self, _actor: &str, req: AddRequest) -> Result<Vec<u8>, Box<dyn Error>> {
+        let mut store = self.store.write().map_err(|e| SimpleError::new(&e.to_string()))?;
+        let value = store.atomic_add(&req.key, req.value)?;
+        bytes(AddResponse { value: value })
+    }
 }
 
 impl CapabilityProvider for WasccKeyvalueProvider {
@@ -85,7 +118,26 @@ impl CapabilityProvider for WasccKeyvalueProvider {
             OP_REMOVE_ACTOR if actor == "system" => {
                 self.remove_actor(CapabilityConfiguration::decode(msg).unwrap())
             }
+            OP_ADD => self.add(actor, AddRequest::decode(msg).unwrap()),
+            // OP_CLEAR =>,
+            // OP_GET =>,
+            // OP_KEY_EXISTS =>,
+            // OP_LIST_DEL =>,
+            // OP_PUSH =>,
+            // OP_RANGE =>,
+            // OP_SET =>,
+            // OP_SET_ADD =>,
+            // OP_SET_INTERSECT =>,
+            // OP_SET_QUERY =>,
+            // OP_SET_REMOVE =>,
+            // OP_SET_UNION =>,
             _ => Err("bad dispatch".into()),
         }
     }
+}
+
+fn bytes(msg: impl prost::Message) -> Result<Vec<u8>, Box<dyn Error>> {
+    let mut buf = Vec::new();
+    msg.encode(&mut buf)?;
+    Ok(buf)
 }
